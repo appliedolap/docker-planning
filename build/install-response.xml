@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Silent install response for EPM System 11.2.15: Foundation Services (Shared Services,
+  Workspace, Calculation Manager), Essbase 21c and Planning. No Financial Reporting, no
+  Oracle HTTP Server and no Oracle Database clients (the repository is SQL Server).
+
+  Written from the installer's own definitions in Part 1's installTool.jar rather than
+  recorded: the product tree (xml/installTree.xml) for the names, and the response schema
+  (xml/response.xsd), which this file validates against. Product, ProductComponent and
+  Component are installTree item IDs at the top, middle and leaf levels.
+
+  Dependencies the installer adds by itself: Workspace (from hssWebApp), Calculation
+  Manager (also a Planning dependency), and the Essbase client and common components.
+  The Essbase 21c assembly (essbase_services) carries Provider Services and EAS Lite.
+
+  ActionType 0 is a new installation. install-epm.sh replaces __MW_HOME__.
+-->
+<HyperionInstall>
+  <HyperionHome>__MW_HOME__</HyperionHome>
+  <UserLocale>en_US</UserLocale>
+  <ActionType>0</ActionType>
+  <SelectedProducts>
+    <Product name="foundation">
+      <ProductComponent name="foundationServices">
+        <Component>hssWebApp</Component>
+        <Component>staticContent</Component>
+        <Component>weblogic</Component>
+      </ProductComponent>
+      <ProductComponent name="Calc">
+        <Component>CalcWebApp</Component>
+      </ProductComponent>
+    </Product>
+    <Product name="essbase">
+      <Component>essbaseService</Component>
+    </Product>
+    <Product name="planning">
+      <Component>planningWebApp</Component>
+    </Product>
+  </SelectedProducts>
+  <ProductHomes/>
+  <UpgradeCleanUp/>
+  <UninstallCleanUp>false</UninstallCleanUp>
+</HyperionInstall>

@@ -1,0 +1,6 @@
+# The Oracle media reaches the build through the separate "media" build context.
+media
+recordings
+start_scripts
+*.md
+.DS_Store

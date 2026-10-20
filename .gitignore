@@ -1,0 +1,8 @@
+# Oracle media is licensed and large; never commit it.
+media/
+# Raw configurator recordings and their logs: encrypted credentials and environment
+# details. container/config-response.xml is the cleaned-up template.
+recordings/
+# Local settings, including passwords; .env.example is the template.
+.env
+.DS_Store

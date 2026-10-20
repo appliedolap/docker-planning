@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Second configurator pass: Foundation's Configure Web Server task on its own, with the
+  settings recorded alongside config-response.xml (the embedded WebLogic HTTP server,
+  which on a single managed server is EPMServer0 on port 9000).
+
+  It runs separately because, on this product set, it fails with a NullPointerException
+  in WebXMLUpdater.changeRAFContexts unless the Provider Services web app registered by
+  the Essbase 21c configuration has a "context" property in the Shared Services
+  registry, which that configuration doesn't write. configure.sh adds it in between.
+  Without this task, Workspace answers 500: "Could not find the Workspace Web Server
+  component as a child of the Workspace product node."
+-->
+<products>
+  <instance>__EPM_ORACLE_INSTANCE__</instance>
+  <enable_compact_deployment_mode>true</enable_compact_deployment_mode>
+  <auto_port_tick>true</auto_port_tick>
+  <product productXML="Foundation">
+    <tasks>
+      <task>WebServerConfiguration</task>
+    </tasks>
+    <bean name="main">
+      <bean name="httpServerConfiguration">
+        <property name="displayVersion">10.3.6</property>
+        <property name="port">9000</property>
+        <property name="protocol">http</property>
+        <bean name="Proxy">
+          <property name="path"/>
+          <property name="port">9000</property>
+          <property name="useSSL">false</property>
+        </bean>
+        <property name="sharedLocation">use_local_instance</property>
+      </bean>
+      <property name="shortcutFolderName">Foundation Services</property>
+    </bean>
+  </product>
+</products>

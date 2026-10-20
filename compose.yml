@@ -1,0 +1,202 @@
+# Hyperion Planning 11.2.26 (Foundation, Calculation Manager, Essbase 21c, Planning) with
+# SQL Server 2022 as the repository. See README.md before the first run: the build needs
+# Oracle media in ./media, and the first start configures EPM, which takes a long time.
+#
+#   docker compose up -d --build        build, then configure on first start
+#   docker compose logs -f planning     watch it
+#   docker compose down                 stop, keeping configuration and databases
+#   docker compose down -v              start over (drops the databases too)
+#
+# The recorder services (profile "recorder") exist only to record the installer and
+# configurator response files; see recorder/README.md.
+name: hyperion-planning
+
+x-epm-environment: &epm-environment
+  DB_HOST: mssql
+  DB_PORT: "1433"
+  DB_ADMIN_USER: sa
+  DB_ADMIN_PASSWORD: "${MSSQL_SA_PASSWORD:-Welcome1_EPM}"
+  EPM_DB: "${EPM_DB:-EPM}"
+  RCU_DB: "${RCU_DB:-EPM_RCU}"
+  PLANNING_APP_DB: "${PLANNING_APP_DB:-EPM_VISION}"
+  WLS_ADMIN_USER: "${WLS_ADMIN_USER:-epm_admin}"
+  WLS_ADMIN_PASSWORD: "${EPM_PASSWORD:-Welcome1_EPM}"
+  EPM_ADMIN_USER: "${EPM_ADMIN_USER:-admin}"
+  EPM_ADMIN_PASSWORD: "${EPM_PASSWORD:-Welcome1_EPM}"
+
+x-epm-build: &epm-build
+  context: .
+  # The Oracle media comes in as its own build context and is bind-mounted only by the
+  # RUN steps that use it, so none of it lands in an image layer.
+  additional_contexts:
+    media: ./media
+  args:
+    BASE_MEDIA_DIR: "${BASE_MEDIA_DIR:-Hyperion_Planning_11.2.15}"
+    UPDATE_MEDIA_DIR: "${UPDATE_MEDIA_DIR:-Planning_11.2.26_Linux}"
+    # A tagged image of the Dockerfile's "installed" target, to skip the 40-minute base
+    # install; "installed" builds it from scratch. See the Dockerfile header.
+    INSTALLED_IMAGE: "${INSTALLED_IMAGE:-installed}"
+    # Likewise an image whose /u01/oracle is already installed and patched (a previous
+    # planning image), to rebuild only the container scripts; "install" builds it.
+    PATCHED_IMAGE: "${PATCHED_IMAGE:-install}"
+
+services:
+
+  # SQL Server 2022 is certified for EPM 11.2 from 11.2.16. Mapped to 21433 on the host,
+  # clear of a local SQL Server and of Cessna's Essbase stack on 11433.
+  mssql:
+    image: "${MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}"
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Welcome1_EPM}"
+      MSSQL_PID: Developer
+    ports:
+      - "${MSSQL_HOST_PORT:-21433}:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    restart: unless-stopped
+    healthcheck:
+      # 2019 has sqlcmd under mssql-tools, 2022 under mssql-tools18 (where -C, trust
+      # the server certificate, is mandatory). Try both, so changing MSSQL_IMAGE doesn't
+      # leave the health check failing forever.
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" ||
+          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1"
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  # Creates the EPM, RCU and Vision databases with the collations and isolation settings
+  # Oracle requires, which EPM and RCU won't do themselves. Safe to re-run.
+  mssql-init:
+    image: "${MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}"
+    platform: linux/amd64
+    depends_on:
+      mssql:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Welcome1_EPM}"
+      EPM_DB: "${EPM_DB:-EPM}"
+      RCU_DB: "${RCU_DB:-EPM_RCU}"
+      PLANNING_APP_DB: "${PLANNING_APP_DB:-EPM_VISION}"
+    volumes:
+      - ./db:/db:ro
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >-
+        sqlcmd="/opt/mssql-tools18/bin/sqlcmd -C"; [ -x /opt/mssql-tools18/bin/sqlcmd ] || sqlcmd=/opt/mssql-tools/bin/sqlcmd;
+        $$sqlcmd -S mssql -U sa -P "$$MSSQL_SA_PASSWORD" -b -i /db/init-databases.sql
+        -v EPM_DB="$$EPM_DB" RCU_DB="$$RCU_DB" PLANNING_APP_DB="$$PLANNING_APP_DB"
+    restart: "no"
+
+  planning:
+    build:
+      <<: *epm-build
+      target: planning
+    image: "${PLANNING_IMAGE:-appliedolap/hyperion-planning:11.2.26}"
+    platform: linux/amd64
+    # EPM's name is EPM_HOSTNAME.EPM_DOMAIN (planning.epm.test by default; see
+    # .env.example). EPM records it in the Shared Services registry at first-start
+    # configuration and it can't change afterwards; the entry point refuses to start a
+    # configured volume under a different name. Letters, digits, dashes and dots only.
+    # Clients that use the recorded addresses (Smart View, Essbase clients) must resolve
+    # it to this machine: DNS, or "127.0.0.1 planning.epm.test" in /etc/hosts locally.
+    hostname: "${EPM_HOSTNAME:-planning}"
+    domainname: "${EPM_DOMAIN:-epm.test}"
+    # Back up after a Docker restart. A failed first-time configuration isn't retried:
+    # the entry point idles with an explanation instead (see entrypoint.sh).
+    restart: unless-stopped
+    depends_on:
+      mssql-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *epm-environment
+    # Host ports must match container ports: EPM redirects browsers to its own logical
+    # address, planning.epm.test:9000 and so on.
+    ports:
+      - "7001:7001"   # EPM WebLogic admin console
+      - "9000:9000"   # EPMServer0: Workspace, Shared Services, Planning, Calculation Manager
+      - "7010:7010"   # Essbase domain WebLogic admin
+      - "9010:9010"   # Essbase managed server: /essbase (Smart View, JAPI, XMLA, REST)
+      - "9110:9110"   # EAS Lite
+      - "1423:1423"   # Essbase agent
+      # The Essbase application ports (31768-32768) aren't published: Planning reaches
+      # Essbase inside the container, and Smart View and JAPI go through 9010. Don't
+      # narrow the range either; Essbase sizes its application slots from it and won't
+      # configure with a small one.
+    ulimits:
+      # EPM's scripts want the limit between 4096 and 32768 (the configurator lowers
+      # anything higher to 4096); ODI patching wants at least 8096.
+      nofile:
+        soft: 32768
+        hard: 32768
+      nproc:
+        soft: 16384
+        hard: 16384
+    mem_limit: "${PLANNING_MEM_LIMIT:-16g}"
+    shm_size: 1g
+    # stop-epm.sh takes about 7 minutes under Rosetta; past this, Docker kills EPM outright.
+    stop_grace_period: 10m
+    volumes:
+      # The whole EPM tree, seeded from the image when the volume is first created, so
+      # configuration survives `down` and a recreated container. A rebuilt image only
+      # takes effect after `down -v`.
+      - epm-home:/u01/oracle
+      # LCM exports (folders containing Import.xml) to import on first start.
+      - ./start_scripts:/home/oracle/start_scripts:ro
+
+  install-recorder:
+    profiles: [recorder]
+    build:
+      <<: *epm-build
+      target: install-recorder
+    image: hyperion-planning-recorder:install
+    platform: linux/amd64
+    hostname: "${EPM_HOSTNAME:-planning}"
+    domainname: "${EPM_DOMAIN:-epm.test}"
+    ports:
+      - "127.0.0.1:6080:6080"
+    volumes:
+      - ./media:/media:ro
+      - ./recordings:/home/oracle/recordings
+
+  config-recorder:
+    profiles: [recorder]
+    # Built on top of the planning image (build that first), so it never repeats the
+    # install or the update.
+    build:
+      context: .
+      target: config-recorder
+      args:
+        PLANNING_IMAGE: "${PLANNING_IMAGE:-appliedolap/hyperion-planning:11.2.26}"
+    image: hyperion-planning-recorder:config
+    platform: linux/amd64
+    hostname: "${EPM_HOSTNAME:-planning}"
+    domainname: "${EPM_DOMAIN:-epm.test}"
+    depends_on:
+      mssql-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *epm-environment
+    ports:
+      - "127.0.0.1:6080:6080"
+      - "7001:7001"
+      - "9000:9000"
+    ulimits:
+      # EPM's scripts want the limit between 4096 and 32768 (the configurator lowers
+      # anything higher to 4096); ODI patching wants at least 8096.
+      nofile:
+        soft: 32768
+        hard: 32768
+    volumes:
+      - ./recordings:/home/oracle/recordings
+      - ./container:/home/oracle/container:ro
+
+volumes:
+  mssql-data:
+  epm-home:
