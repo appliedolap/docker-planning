@@ -28,7 +28,12 @@ Working end to end (2026-10-20, on an M1 Max under Rosetta):
   5. Adds a registry property Essbase 21c forgets, then runs the Configure Web Server task as a second silent pass (`webserver-response.xml`).
   6. Points Essbase's ODBC configuration at the real DataDirect 8.0.2 driver paths.
   7. Writes `/u01/oracle/.configured`.
-- **Every start:** WebLogic Admin Server, then `epmsystem1/bin/start.sh` (which also starts the Essbase domain), then any LCM imports in `start_scripts/` (first start only), then the logs.
+- **Every start:**
+  1. WebLogic Admin Server.
+  2. `epmsystem1/bin/start.sh`, which also starts the Essbase domain.
+  3. The launcher page at `/` (installed or updated only if it changed).
+  4. Any LCM imports in `start_scripts/` (first start only).
+  5. Then it follows the logs.
 - **State:** everything EPM writes is under `/u01/oracle`, on the `epm-home` volume. With the `mssql-data` volume, configuration survives `docker compose down`. `down -v` is a full reset.
 
 ### Oracle defects this works around
@@ -94,6 +99,14 @@ Either half can instead come from an image built earlier, which survives build-c
     docker compose logs -f planning
 
 Healthy means `/u01/oracle/.configured` exists and both web tiers answer (`docker compose ps`).
+
+**Start at http://localhost:9000/** (or http://planning.epm.test:9000/), a launcher page with:
+
+- links to everything below, with a live status dot on each;
+- copyable connection strings for Smart View, the Essbase Java API (Dodeca), REST, the agent and SQL Server;
+- which user signs in where.
+
+It deliberately doesn't show passwords. EPM's web proxy owns the root path (it also forwards `/essbase` and `/eas` on port 9000), so the page is added to the proxy rather than replacing it; see `container/install-landing.sh`. Its status dots for ports other than 9000 only work on `localhost`. Under any other name, browsers block a plain-http page from probing other ports, so those dots show grey ("couldn't check"), not red.
 
 | What | URL |
 | --- | --- |
@@ -179,7 +192,7 @@ Two situations aren't retried. The container stays up, idle and unhealthy, with 
 | `compose.yml` | SQL Server, database setup, Planning, recorders |
 | `.env.example` | Every setting, with Oracle's constraints; copy to `.env` |
 | `build/` | Build-time install and update scripts, install response file |
-| `container/` | Entry point, configuration (two response templates), start/stop, health check, ODBC fix |
+| `container/` | Entry point, configuration (two response templates), start/stop, health check, ODBC fix, launcher page (`landing/`, `install-landing.sh`) |
 | `db/init-databases.sql` | Database creation, run by `mssql-init` |
 | `recorder/` | VNC desktop for recording the configurator response file, and how to do it |
 | `start_scripts/` | LCM exports to import on first start (empty) |

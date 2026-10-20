@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyperion Planning 11.2.26</title>
+<!--
+  Launcher page served at the root of port 9000 by EPM's own web proxy (proxyservlet).
+  container/install-landing.sh fills in __EPM_HOST__ and __SQL_HOST_PORT__ and installs it.
+  Links use whatever host the browser used; connection strings use EPM's recorded name.
+-->
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1c2430; --muted: #5b6676; --line: #dde2e8;
+    --accent: #c74634; --accent-soft: #fbeceb; --up: #2f9e5b; --down: #c0392b; --unknown: #a0a8b3;
+    --code: #eef1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13171c; --card: #1b2128; --text: #e6eaef; --muted: #9aa5b3; --line: #2c343e;
+      --accent: #f07a69; --accent-soft: #2e1f1d; --code: #232a33;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 48px; }
+  header h1 { margin: 0; font-size: 26px; letter-spacing: -0.01em; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  .note { margin-top: 14px; padding: 10px 14px; border-radius: 8px; background: var(--accent-soft);
+          border: 1px solid var(--line); font-size: 14px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+       margin: 32px 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  a.card { display: block; text-decoration: none; color: inherit; background: var(--card);
+           border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+           transition: border-color .15s, transform .15s; }
+  a.card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  a.card.primary { border-color: var(--accent); }
+  .card .title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .card .desc { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .card .url { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted);
+               margin-top: 8px; word-break: break-all; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--unknown); flex: none; }
+  .dot.up { background: var(--up); } .dot.down { background: var(--down); }
+  table { width: 100%; border-collapse: collapse; background: var(--card);
+          border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  td { padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: middle; }
+  tr:first-child td { border-top: none; }
+  td.label { width: 34%; font-weight: 500; }
+  td.label small { display: block; color: var(--muted); font-weight: 400; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code);
+         padding: 3px 6px; border-radius: 5px; word-break: break-all; }
+  button.copy { margin-left: 8px; font: inherit; font-size: 12px; padding: 3px 9px; cursor: pointer;
+                border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); }
+  button.copy:hover { border-color: var(--accent); }
+  footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 600px) { td.label { width: auto; display: block; border: none; padding-bottom: 0; }
+                              td { display: block; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Hyperion Planning 11.2.26</h1>
+    <p>EPM System with Essbase 21c on <strong id="epm-host"></strong></p>
+    <div class="note" id="host-note" hidden></div>
+  </header>
+
+  <h2>Start here</h2>
+  <div class="grid" id="start"></div>
+
+  <h2>Applications</h2>
+  <div class="grid" id="apps"></div>
+
+  <h2>Administration</h2>
+  <div class="grid" id="admin"></div>
+
+  <h2>Connection strings</h2>
+  <table id="connections"></table>
+
+  <h2>Signing in</h2>
+  <table id="signin"></table>
+
+  <footer>
+    Served at the root of port 9000 by EPM's own web proxy; installed by
+    <code>container/install-landing.sh</code> from <code>container/landing/index.html</code>.
+    Status dots: green, answering; red, not answering; grey, couldn't check. Browsers block
+    plain-http pages from probing other ports, except on localhost.
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var EPM = "__EPM_HOST__";          // the name EPM recorded at configuration
+  var SQL_PORT = "__SQL_HOST_PORT__"; // SQL Server's port on the Docker host
+  if (EPM.indexOf("__") === 0) { EPM = location.hostname; }
+  if (SQL_PORT.indexOf("__") === 0) { SQL_PORT = "21433"; }
+
+  var host = location.hostname;
+  function u(port, path) { return "http://" + host + ":" + port + path; }
+
+  var start = [
+    { name: "Workspace", url: u(9000, "/workspace/"), primary: true,
+      desc: "Planning administration, Calculation Manager and the Shared Services console all live here " +
+            "(Navigate → Administer). Click Launch Application…; it opens in a pop-up." }
+  ];
+  var apps = [
+    { name: "Planning", url: u(9000, "/HyperionPlanning/"),
+      desc: "Planning's own sign-in, for working in an application such as Vision. Create and administer applications from Workspace." },
+    { name: "Calculation Manager", url: u(9000, "/calcmgr/index.htm"),
+      desc: "Business rules for Planning and Essbase. Also under Workspace → Administer." },
+    { name: "Essbase web UI", url: u(9010, "/essbase/jet/"),
+      desc: "Essbase 21c's console: applications, cubes, outlines, jobs and files." },
+    { name: "EAS Lite", url: u(9110, "/easconsole/"),
+      desc: "Essbase Administration Services Lite. Oracle is retiring it in favour of the web UI." }
+  ];
+  var admin = [
+    { name: "WebLogic console — EPM domain", url: u(7001, "/console/"),
+      desc: "Domain EPMSystem: Admin Server and EPMServer0 (Workspace, Shared Services, Planning, Calculation Manager)." },
+    { name: "Fusion Middleware Control", url: u(7001, "/em/"),
+      desc: "Enterprise Manager for the EPM domain: logs, metrics, server status." },
+    { name: "WebLogic console — Essbase domain", url: u(7010, "/console/"),
+      desc: "Domain essbase_domain: Essbase, Provider Services and EAS Lite." },
+    { name: "Web proxy status", url: u(9000, "/status"),
+      desc: "EPM's embedded proxy, which also serves this page and forwards /essbase and /eas on port 9000." }
+  ];
+  var connections = [
+    { label: "Smart View — shared connections", hint: "Smart View → Options → Advanced",
+      value: "http://" + EPM + ":9000/workspace/SmartViewProviders" },
+    { label: "Smart View — Essbase", hint: "private connection",
+      value: "http://" + EPM + ":9010/essbase/smartview" },
+    { label: "Smart View — Planning", hint: "private connection",
+      value: "http://" + EPM + ":9000/HyperionPlanning/SmartView" },
+    { label: "Essbase Java API", hint: "Provider Services URL, e.g. Dodeca",
+      value: "http://" + EPM + ":9010/essbase/japi" },
+    { label: "Essbase REST API", hint: "basic authentication",
+      value: "http://" + EPM + ":9010/essbase/rest/v1" },
+    { label: "Essbase agent", hint: "classic API, MaxL",
+      value: EPM + ":1423" },
+    { label: "Planning data source", hint: "Essbase server field",
+      value: EPM },
+    { label: "SQL Server", hint: "from the Docker host, user sa",
+      value: "localhost," + SQL_PORT }
+  ];
+  var signin = [
+    { label: "Workspace, Planning, Essbase, EAS", hint: "Shared Services admin", value: "admin" },
+    { label: "WebLogic consoles, Fusion Middleware Control", hint: "WebLogic admin", value: "epm_admin" },
+    { label: "SQL Server", hint: "", value: "sa" },
+    { label: "Passwords", hint: "fixed at first start",
+      text: "EPM_PASSWORD (EPM and WebLogic) and MSSQL_SA_PASSWORD (SQL Server), from .env next to compose.yml. " +
+            "Without a .env, the defaults in .env.example." }
+  ];
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) { e.className = cls; }
+    if (text !== undefined) { e.textContent = text; }
+    return e;
+  }
+
+  function cards(id, items) {
+    var grid = document.getElementById(id);
+    items.forEach(function (item) {
+      var a = el("a", "card" + (item.primary ? " primary" : ""));
+      a.href = item.url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      var title = el("div", "title");
+      var dot = el("span", "dot");
+      dot.title = "checking…";
+      title.appendChild(dot);
+      title.appendChild(el("span", "", item.name));
+      a.appendChild(title);
+      a.appendChild(el("div", "desc", item.desc));
+      a.appendChild(el("div", "url", item.url));
+      grid.appendChild(a);
+      probe(item.url, dot);
+    });
+  }
+
+  // A no-cors request resolves if anything answered. A failure only means "down" for this
+  // page's own port: on plain http under a name other than localhost the page isn't a
+  // secure context, and Chromium's local-network protections block it from fetching other
+  // ports outright (instantly, without touching the network). So for other ports a
+  // failure is "couldn't check", not "down".
+  function probe(url, dot) {
+    var samePort = new URL(url).origin === location.origin;
+    var timeout = new Promise(function (_, reject) { setTimeout(reject, 8000); });
+    Promise.race([fetch(url, { mode: "no-cors", cache: "no-store", credentials: "omit" }), timeout])
+      .then(function () { dot.className = "dot up"; dot.title = "answering"; })
+      .catch(function () {
+        if (samePort) { dot.className = "dot down"; dot.title = "not answering"; }
+        else { dot.title = "couldn't check from this page; the browser may block it from probing other ports"; }
+      });
+  }
+
+  function copy(text, button) {
+    function show(label) { button.textContent = label; setTimeout(function () { button.textContent = "Copy"; }, 1500); }
+    // Plain http on a name other than localhost isn't a secure context, and browsers can
+    // refuse the clipboard API anyway, so fall back to copying a selection.
+    function viaSelection() {
+      var area = el("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(area);
+      show(ok ? "Copied" : "Select and copy");
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { show("Copied"); }, viaSelection);
+    } else {
+      viaSelection();
+    }
+  }
+
+  function rows(id, items) {
+    var table = document.getElementById(id);
+    items.forEach(function (item) {
+      var tr = el("tr");
+      var label = el("td", "label", item.label);
+      if (item.hint) { label.appendChild(el("small", "", item.hint)); }
+      var value = el("td");
+      if (item.value !== undefined) {
+        value.appendChild(el("code", "", item.value));
+        var button = el("button", "copy", "Copy");
+        button.type = "button";
+        button.addEventListener("click", function () { copy(item.value, button); });
+        value.appendChild(button);
+      } else {
+        value.textContent = item.text;
+      }
+      tr.appendChild(label);
+      tr.appendChild(value);
+      table.appendChild(tr);
+    });
+  }
+
+  document.getElementById("epm-host").textContent = EPM;
+  if (host !== EPM) {
+    var note = document.getElementById("host-note");
+    note.hidden = false;
+    note.textContent = "You're browsing as " + host + ". EPM's own name is " + EPM +
+      ": the connection strings below use it, and clients that use EPM's recorded addresses need it to resolve to " +
+      "this machine (DNS, or a hosts-file entry).";
+  }
+  cards("start", start);
+  cards("apps", apps);
+  cards("admin", admin);
+  rows("connections", connections);
+  rows("signin", signin);
+})();
+</script>
+</body>
+</html>

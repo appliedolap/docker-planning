@@ -61,6 +61,10 @@ wait_for_port "$DB_HOST" "$DB_PORT" 600 || fail "SQL Server at $DB_HOST:$DB_PORT
 
 "$CONTAINER_DIR/start-epm.sh"
 
+# The launcher page at http://<host>:9000/. After start, because the proxy it lives in is
+# only staged once EPMServer0 has started; it's redeployed only if the page changed.
+"$CONTAINER_DIR/install-landing.sh" --redeploy || log "WARNING: the launcher page wasn't installed"
+
 # LCM imports: any folder in ~/start_scripts holding an Import.xml, exported from
 # Shared Services, as in the 11.1.2.4 image. The credentials in Import.xml are replaced
 # with this container's admin user. A Planning application import needs its data source

@@ -23,6 +23,8 @@ x-epm-environment: &epm-environment
   WLS_ADMIN_PASSWORD: "${EPM_PASSWORD:-Welcome1_EPM}"
   EPM_ADMIN_USER: "${EPM_ADMIN_USER:-admin}"
   EPM_ADMIN_PASSWORD: "${EPM_PASSWORD:-Welcome1_EPM}"
+  # Only for the launcher page's connection strings: SQL Server's port on the host.
+  MSSQL_HOST_PORT: "${MSSQL_HOST_PORT:-21433}"
 
 x-epm-build: &epm-build
   context: .
