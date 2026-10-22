@@ -10,7 +10,7 @@ This repository builds a Docker image of Oracle Hyperion Planning 11.2.26, with 
 
 ## Building and testing
 
-- A build from scratch takes about 80 minutes under Rosetta: 40 for the 11.2.15 install, 40 for the 11.2.26 update. First start then configures for about 23 more. To test a change to the container scripts, build with `PATCHED_IMAGE`; for a change to the update, start from `INSTALLED_IMAGE`. "Building" in `README.md` shows both.
+- A build from scratch takes about 1 hour 40 minutes under Rosetta: about 50 minutes for the 11.2.15 install and 45 for the 11.2.26 update. First start then configures for about 23 more. To test a change to the container scripts, build with `PATCHED_IMAGE`; for a change to the update, start from `INSTALLED_IMAGE`. "Building" in `README.md` shows both.
 - Run `./build/check-media.sh` before building. A change to the media means changing the matching manifest and `media/.dockerignore` together; the script fails when they disagree.
 - Shell scripts must pass `shellcheck`. `build/check-media.sh` also runs on the host, including macOS's bash 3.2, so it avoids bash 4 features such as `mapfile` and associative arrays. The other scripts only run inside the image.
 - A configuration change is only proven on a fresh volume: `docker compose down -v`, then `docker compose up -d`, and wait for healthy. EPM fixes its host name and passwords at first start, so an existing volume can't show it.

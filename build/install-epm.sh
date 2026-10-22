@@ -20,7 +20,7 @@ log() {
     echo "[install-epm] $*"
 }
 
-# Every part present and intact before 40 minutes of installing.
+# Every part present and intact before most of an hour of installing.
 "$here/check-media.sh" "$MEDIA" "$MANIFEST"
 
 # The manifest lists the parts in Oracle's order, Part 1 to Part 6.

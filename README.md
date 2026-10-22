@@ -9,7 +9,7 @@ EPM System 11.2.26 on Oracle Linux 8: Foundation Services, Calculation Manager, 
 1. Check the [prerequisites](#prerequisites): Docker Desktop with enough memory and disk, and Rosetta on Apple Silicon.
 2. Download the seven files listed in [Getting the media](#getting-the-media) into `media/`, and check them with `./build/check-media.sh`.
 3. Copy `.env.example` to `.env`, and set the passwords and host name. They're fixed at first start.
-4. Build the image with `docker compose build planning`. It takes about 80 minutes.
+4. Build the image with `docker compose build planning`. It takes about 1 hour 40 minutes.
 5. Start it with `docker compose up -d`. The first start configures EPM, which takes about 23 minutes; `docker compose logs -f planning` shows progress.
 6. Open the launcher page at http://localhost:9000/.
 7. Optionally, create the Vision sample application through the web UI: see [Creating the Vision sample application](#creating-the-vision-sample-application-manual-once-per-environment).
@@ -116,7 +116,7 @@ Password rules are Oracle's, and they constrain each other. The simplest passwor
 
 ## Building
 
-From scratch: about 40 minutes for the install plus 40 for the update.
+From scratch, in one go: about 1 hour 40 minutes under Rosetta. That's about 3 minutes sending the media to Docker, 50 for the install and 45 for the update (measured 2026-10-22).
 
     docker compose build planning
 
@@ -243,7 +243,6 @@ Two situations aren't retried. The container stays up, idle and unhealthy, with 
 - LCM imports from `start_scripts/` on first start (the code is a port of the one in [docker-essbase](https://github.com/appliedolap/docker-essbase), the 11.1.2.4 image).
 - Hosts other than Apple Silicon: x86-64 Linux, and Windows with Docker Desktop. Nothing here depends on Apple Silicon, and without Rosetta everything should be faster, but it hasn't been tried.
 - Configuration without Xvfb. The web server pass ran headless; the main pass still runs under Xvfb (`EPM_USE_XVFB=true`).
-- One uninterrupted build from scratch. The base install and the update each ran with the current scripts, but as separate builds (the update via `INSTALLED_IMAGE`). The running image is that patched install plus the current `container/` scripts (via `PATCHED_IMAGE`).
 
 ## License
 

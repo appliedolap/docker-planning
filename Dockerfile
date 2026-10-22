@@ -19,12 +19,12 @@
 #
 # Targets:
 #   planning          the runnable image (default)
-#   installed         just the 11.2.15 base install (about 40 minutes under Rosetta)
+#   installed         just the 11.2.15 base install (about 50 minutes under Rosetta)
 #   install-recorder  base OS + VNC, for recording installTool.sh -record
 #   config-recorder   the planning image + VNC, for recording configtool.sh -record
 #                     (build planning first; compose builds this on top of its tag)
 #
-# The install (about 40 minutes) and the update (about 40 more) easily outlive
+# The install (about 50 minutes) and the update (about 45 more) easily outlive
 # Docker's build cache: its default 20 GB cap holds less than the media (18 GB) and the
 # install together. Two build args let either be supplied as an already-built image
 # instead:
