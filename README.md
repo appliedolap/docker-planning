@@ -120,6 +120,10 @@ From scratch, in one go: about 1 hour 40 minutes under Rosetta. That's about 3 m
 
     docker compose build planning
 
+**Stop the stack before building from scratch** (`docker compose stop`), unless Docker has memory to spare beyond what the running stack uses. With about 23 GB for Docker, a full build next to a running stack ran Docker's VM out of memory, and the kernel killed EPMServer0, the server behind Workspace, Shared Services and Planning. The container itself stays up, so its restart policy never fires: it just reports unhealthy, and those web applications stop answering. To bring the server back (about 3 minutes):
+
+    docker compose exec planning bash -c 'cd "$EPM_ORACLE_INSTANCE/bin" && ./startEPMServer.sh'
+
 Either half can instead come from an image built earlier, which survives build-cache eviction and makes rebuilding the container scripts take seconds:
 
     # keep the 11.2.15 install
