@@ -2,15 +2,31 @@
 
 EPM System 11.2.26 on Oracle Linux 8: Foundation Services, Calculation Manager, Essbase 21c and Planning, with SQL Server 2022 as the repository. It's for development and testing. Oracle doesn't document containers as a supported deployment.
 
-See [REQUIREMENTS.md](REQUIREMENTS.md) for the analysis behind the choices here.
+**This repository holds build scripts only.** It contains no Oracle software, and no image is published from it. Clone it, download the installation media from Oracle yourself, and build your own image. An image built from it contains Oracle software, so don't publish that either. This is an unofficial project, not affiliated with or endorsed by Oracle.
+
+## Quick start
+
+1. Check the [prerequisites](#prerequisites): Docker Desktop with enough memory and disk, and Rosetta on Apple Silicon.
+2. Download the seven files listed in [Getting the media](#getting-the-media) into `media/`, and check them with `./build/check-media.sh`.
+3. Copy `.env.example` to `.env`, and set the passwords and host name. They're fixed at first start.
+4. Build the image with `docker compose build planning`. It takes about 80 minutes.
+5. Start it with `docker compose up -d`. The first start configures EPM, which takes about 23 minutes; `docker compose logs -f planning` shows progress.
+6. Open the launcher page at http://localhost:9000/.
+7. Optionally, create the Vision sample application through the web UI: see [Creating the Vision sample application](#creating-the-vision-sample-application-manual-once-per-environment).
 
 ## Status
 
-Working end to end (2026-10-20, on an M1 Max under Rosetta):
+Working end to end on 2026-10-20. Tested on macOS 15.8 on Apple Silicon, under Rosetta, with Docker Desktop (Docker Engine 29.8.2), SQL Server 2022 (`mcr.microsoft.com/mssql/server:2022-latest`) and the media files the [manifests](media) list:
 
 - `docker compose up -d` configures and starts everything unattended in about 23 minutes on first start: database setup, RCU, two silent configurator passes, three fixes for Oracle defects, then startup. Later starts take about 8 minutes.
 - Workspace, Shared Services, Planning, Calculation Manager, Essbase (web UI, Smart View, JAPI), EAS Lite and both WebLogic consoles all answer, and the container reports healthy.
 - The Vision sample application has to be created through the web UI (below). That procedure was carried out on a freshly started container. Planning reported "Application created successfully", and Essbase shows Vision with cubes Plan1–Plan3 started, Plan1 holding 6,691 data blocks.
+
+What's inside, and what Oracle certifies:
+
+- There's no 11.2.26 installer. The image installs EPM System 11.2.15 and applies the 11.2.26 update, as Oracle documents for a new 11.2.26 installation.
+- The installer brings its own WebLogic 12.2.1.4 and Oracle JDK 8, and the update moves the JDK to 8u491. Essbase is 21c (21.8.1), in its own WebLogic domain.
+- Oracle's EPM 11.2 certification matrix lists Oracle Linux 8 (from 11.2.15) and SQL Server 2016 SP2, 2017, 2019 and 2022 (from 11.2.16). It doesn't say whether SQL Server running on Linux, as it does here, counts.
 
 ## How it works
 
@@ -58,7 +74,7 @@ These cost real time to find; each fix sits in the script named, with the eviden
 - **Host name:** EPM's name is `EPM_HOSTNAME.EPM_DOMAIN`, `planning.epm.test` by default (see Configuration). Locally, add `127.0.0.1 planning.epm.test` to the Mac's `/etc/hosts`.
   - Browsing works without it: redirects are relative, and Workspace, Planning administration and Vision creation all ran on `http://localhost:9000`.
   - What needs the name is anything EPM hands an absolute URL from its registry, where every application is recorded under that host. The likely cases are Smart View's shared connections and Essbase/Provider Services addresses (`:9010/essbase/...`).
-- **Ports:** 7001, 9000, 7010, 9010, 9110 and 1423 must be free, and can't be remapped (EPM redirects to its own ports). Stop Cessna's Essbase stack first; it uses 7001, 9000 and 1423.
+- **Ports:** 7001, 9000, 7010, 9010, 9110 and 1423 must be free, and can't be remapped (EPM redirects to its own ports). Stop any other Essbase or EPM containers first.
 
 ## Getting the media
 
@@ -94,6 +110,7 @@ Settings come from environment variables, or from a `.env` file next to `compose
 | `PLANNING_MEM_LIMIT` | `16g` | |
 | `MSSQL_HOST_PORT` | `21433` | SQL Server from the host |
 | `INSTALLED_IMAGE` / `PATCHED_IMAGE` | (build from scratch) | Reuse a built image instead; see Building |
+| `PLANNING_IMAGE` | `hyperion-planning:11.2.26` | The built image's name. It contains Oracle software: push it only to a private registry |
 
 Password rules are Oracle's, and they constrain each other. The simplest password satisfies all of them: 16 characters or fewer, starting with a letter, containing a digit, using only letters, digits and `_`. `configure.sh` checks before doing anything.
 
@@ -111,7 +128,7 @@ Either half can instead come from an image built earlier, which survives build-c
     INSTALLED_IMAGE=hyperion-planning:installed-11.2.15 docker compose build planning
 
     # keep the patched install (any previous planning image)
-    docker tag appliedolap/hyperion-planning:11.2.26 hyperion-planning:patched-11.2.26
+    docker tag hyperion-planning:11.2.26 hyperion-planning:patched-11.2.26
     PATCHED_IMAGE=hyperion-planning:patched-11.2.26 docker compose build planning
 
 ## Running it
@@ -124,7 +141,7 @@ Healthy means `/u01/oracle/.configured` exists and both web tiers answer (`docke
 **Start at http://localhost:9000/** (or http://planning.epm.test:9000/), a launcher page with:
 
 - links to everything below, with a live status dot on each;
-- copyable connection strings for Smart View, the Essbase Java API (Dodeca), REST, the agent and SQL Server;
+- copyable connection strings for Smart View, the Essbase Java API, REST, the agent and SQL Server;
 - which user signs in where.
 
 It deliberately doesn't show passwords. EPM's web proxy owns the root path (it also forwards `/essbase` and `/eas` on port 9000), so the page is added to the proxy rather than replacing it; see `container/install-landing.sh`. Its status dots for ports other than 9000 only work on `localhost`. Under any other name, browsers block a plain-http page from probing other ports, so those dots show grey ("couldn't check"), not red.
@@ -219,9 +236,17 @@ Two situations aren't retried. The container stays up, idle and unhealthy, with 
 | `start_scripts/` | LCM exports to import on first start (empty) |
 | `media/` | Oracle media, ignored by git, plus the manifests and `.dockerignore` that say which files the build uses |
 | `recordings/` | Raw recordings and configurator logs from the recording run; ignored by git |
+| `AGENTS.md` | Ground rules for coding agents and contributors |
 
 ## Not yet exercised
 
-- LCM imports from `start_scripts/` on first start (the code is a port of the 11.1.2.4 image's).
+- LCM imports from `start_scripts/` on first start (the code is a port of the one in [docker-essbase](https://github.com/appliedolap/docker-essbase), the 11.1.2.4 image).
+- Hosts other than Apple Silicon: x86-64 Linux, and Windows with Docker Desktop. Nothing here depends on Apple Silicon, and without Rosetta everything should be faster, but it hasn't been tried.
 - Configuration without Xvfb. The web server pass ran headless; the main pass still runs under Xvfb (`EPM_USE_XVFB=true`).
 - One uninterrupted build from scratch. The base install and the update each ran with the current scripts, but as separate builds (the update via `INSTALLED_IMAGE`). The running image is that patched install plus the current `container/` scripts (via `PATCHED_IMAGE`).
+
+## License
+
+Copyright 2026 Applied OLAP, Inc. Licensed under the [Apache License, Version 2.0](LICENSE).
+
+Oracle, Hyperion, Essbase and Java are registered trademarks of Oracle and/or its affiliates. Other names may be trademarks of their respective owners.

@@ -9,7 +9,7 @@ The configurator has had no console mode since 11.2.15, and 11.1.2.4 response fi
 
     http://localhost:6080/vnc.html?autoconnect=true&resize=remote
 
-The desktop has an Openbox session with an xterm (closing it opens a new one) and nothing else. Typing in a normal browser just works. When driving noVNC from automation (Claude's browser pane, Playwright), text must arrive as real `keydown`/`keyup` events on the canvas. Inserted text never reaches the VNC session.
+The desktop has an Openbox session with an xterm (closing it opens a new one) and nothing else. Typing in a normal browser just works. When driving noVNC from browser automation (Playwright, for example), text must arrive as real `keydown`/`keyup` events on the canvas. Inserted text never reaches the VNC session.
 
 ## 1. Installer response file (only to cross-check)
 

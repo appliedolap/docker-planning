@@ -38,7 +38,7 @@
 #   docker buildx build --platform linux/amd64 --build-context media=./media \
 #       --target installed -t hyperion-planning:installed-11.2.15 --load .
 #   INSTALLED_IMAGE=hyperion-planning:installed-11.2.15 docker compose build planning
-#   docker tag appliedolap/hyperion-planning:11.2.26 hyperion-planning:patched-11.2.26
+#   docker tag hyperion-planning:11.2.26 hyperion-planning:patched-11.2.26
 #   PATCHED_IMAGE=hyperion-planning:patched-11.2.26 docker compose build planning
 #
 # x86-64 only. On Apple Silicon this builds and runs under Rosetta.
@@ -101,7 +101,7 @@ COPY --chown=oracle:oinstall build/install-epm.sh build/install-response.xml bui
     /home/oracle/build/
 
 # The media steps start as root, because BuildKit makes root the owner of the media
-# while keeping its modes, and copies out of Google Drive are owner-only. The scripts
+# while keeping its modes, and files copied by some sync tools are owner-only. The scripts
 # extract as root, hand the files to oracle, and run Oracle's tools as oracle.
 USER root
 

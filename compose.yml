@@ -44,7 +44,7 @@ x-epm-build: &epm-build
 services:
 
   # SQL Server 2022 is certified for EPM 11.2 from 11.2.16. Mapped to 21433 on the host,
-  # clear of a local SQL Server and of Cessna's Essbase stack on 11433.
+  # clear of a local SQL Server on 1433.
   mssql:
     image: "${MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}"
     platform: linux/amd64
@@ -99,7 +99,7 @@ services:
     build:
       <<: *epm-build
       target: planning
-    image: "${PLANNING_IMAGE:-appliedolap/hyperion-planning:11.2.26}"
+    image: "${PLANNING_IMAGE:-hyperion-planning:11.2.26}"
     platform: linux/amd64
     # EPM's name is EPM_HOSTNAME.EPM_DOMAIN (planning.epm.test by default; see
     # .env.example). EPM records it in the Shared Services registry at first-start
@@ -174,7 +174,7 @@ services:
       context: .
       target: config-recorder
       args:
-        PLANNING_IMAGE: "${PLANNING_IMAGE:-appliedolap/hyperion-planning:11.2.26}"
+        PLANNING_IMAGE: "${PLANNING_IMAGE:-hyperion-planning:11.2.26}"
     image: hyperion-planning-recorder:config
     platform: linux/amd64
     hostname: "${EPM_HOSTNAME:-planning}"
