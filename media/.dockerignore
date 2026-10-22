@@ -1,0 +1,18 @@
+# The image build reads this folder through its own build context ("media" in
+# compose.yml). Only the files the manifests list are sent to the builder, so any other
+# downloads left here (the HTTP Server installer, documentation, Windows-only installers)
+# cost nothing. Keep these lines in step with the *.sha256 manifests;
+# build/check-media.sh warns when they drift.
+*
+!*.sha256
+
+# epm-11.2.15-linux.sha256: EPM System 11.2.15 for Linux x86-64, Parts 1 to 6
+!V1039130-01.zip
+!V1039179-01.zip
+!V1039125-01.zip
+!V1039108-01.zip
+!V1039137-01.zip
+!V1039140-01.zip
+
+# epm-11.2.26-update-linux.sha256: the 11.2.26 update for Linux
+!V1057744-01.zip

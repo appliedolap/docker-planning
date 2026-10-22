@@ -53,12 +53,34 @@ These cost real time to find; each fix sits in the script named, with the eviden
 - **Docker Desktop:**
   - Rosetta enabled (Settings → General). The product is x86-64 only.
   - Memory at 22 GB or more (Settings → Resources). EPM is capped at 16 GB (`PLANNING_MEM_LIMIT`) and uses about 12 GB once running; SQL Server uses about 2.5 GB.
-  - Disk: the media build context (~22 GB), the install and update layers, the image (16 GB) and the `epm-home` volume seeded from it. Plan on 80 GB free.
+  - Disk: the media (18 GB), the install and update layers, the image (16 GB) and the `epm-home` volume seeded from it. Plan on 80 GB free.
   - Build cache: Docker Desktop's default caps it at 20 GB (Settings → Docker Engine, `builder.gc.defaultKeepStorage`), which evicts the install between builds. Raise it to about 150 GB, or use the tagged-image route below.
 - **Host name:** EPM's name is `EPM_HOSTNAME.EPM_DOMAIN`, `planning.epm.test` by default (see Configuration). Locally, add `127.0.0.1 planning.epm.test` to the Mac's `/etc/hosts`.
   - Browsing works without it: redirects are relative, and Workspace, Planning administration and Vision creation all ran on `http://localhost:9000`.
   - What needs the name is anything EPM hands an absolute URL from its registry, where every application is recorded under that host. The likely cases are Smart View's shared connections and Essbase/Provider Services addresses (`:9010/essbase/...`).
 - **Ports:** 7001, 9000, 7010, 9010, 9110 and 1423 must be free, and can't be remapped (EPM redirects to its own ports). Stop Cessna's Essbase stack first; it uses 7001, 9000 and 1423.
+
+## Getting the media
+
+The build needs seven downloads from [Oracle Software Delivery Cloud](https://edelivery.oracle.com), from the Oracle Enterprise Performance Management System media packs for Linux x86-64. Downloading them takes an Oracle account and a license, or trial terms, that covers Hyperion Planning; none of the media is in this repository. Put the files in `media/` as they come: one flat folder, under Oracle's file names.
+
+| File | Oracle's name for it | Size |
+| --- | --- | --- |
+| `V1039130-01.zip` | EPM System Release 11.2.15.0.000 for Linux x86-64 Part 1 | 3.5 GB |
+| `V1039179-01.zip` | EPM System Release 11.2.15.0.000 for Linux x86-64 Part 2 | 1.7 GB |
+| `V1039125-01.zip` | EPM System Release 11.2.15.0.000 Linux x86-64 Part 3 | 1.4 GB |
+| `V1039108-01.zip` | EPM System Release 11.2.15.0.000 for Linux x86-64 Part 4 | 0.2 GB |
+| `V1039137-01.zip` | EPM System Release 11.2.15.0.000 for Linux x86-64 Part 5 | 2.9 GB |
+| `V1039140-01.zip` | EPM System Release 11.2.15.0.000 for Linux x86-64 Part 6 | 2.5 GB |
+| `V1057744-01.zip` | EPM System Release 11.2.26.0.000 for Linux x86-64 (the update) | 6.2 GB |
+
+The media packs also offer the Oracle HTTP Server installer, the installation documents, Windows client installers, Oracle Internet Directory and Data Relationship Management. The image needs none of them. Anything else in `media/` is ignored, and isn't sent to Docker.
+
+`media/epm-11.2.15-linux.sha256` and `media/epm-11.2.26-update-linux.sha256` list these files with their SHA-256 checksums, taken from the copies this image was built and tested with. Check the downloads before building:
+
+    ./build/check-media.sh
+
+A missing file shows up at once, and a damaged one (an interrupted download or sync) within a minute. The build runs the same check before it installs or patches anything.
 
 ## Configuration
 
@@ -71,7 +93,6 @@ Settings come from environment variables, or from a `.env` file next to `compose
 | `EPM_HOSTNAME` / `EPM_DOMAIN` | `planning` / `epm.test` | EPM's name. Letters, digits, dashes and dots only |
 | `PLANNING_MEM_LIMIT` | `16g` | |
 | `MSSQL_HOST_PORT` | `21433` | SQL Server from the host |
-| `BASE_MEDIA_DIR` / `UPDATE_MEDIA_DIR` | `Hyperion_Planning_11.2.15` / `Planning_11.2.26_Linux` | Folders under `media/` |
 | `INSTALLED_IMAGE` / `PATCHED_IMAGE` | (build from scratch) | Reuse a built image instead; see Building |
 
 Password rules are Oracle's, and they constrain each other. The simplest password satisfies all of them: 16 characters or fewer, starting with a letter, containing a digit, using only letters, digits and `_`. `configure.sh` checks before doing anything.
@@ -191,12 +212,12 @@ Two situations aren't retried. The container stays up, idle and unhealthy, with 
 | `Dockerfile` | Base OS, install, update, runtime image, recorder images |
 | `compose.yml` | SQL Server, database setup, Planning, recorders |
 | `.env.example` | Every setting, with Oracle's constraints; copy to `.env` |
-| `build/` | Build-time install and update scripts, install response file |
+| `build/` | Build-time install and update scripts, install response file, media check |
 | `container/` | Entry point, configuration (two response templates), start/stop, health check, ODBC fix, launcher page (`landing/`, `install-landing.sh`) |
 | `db/init-databases.sql` | Database creation, run by `mssql-init` |
 | `recorder/` | VNC desktop for recording the configurator response file, and how to do it |
 | `start_scripts/` | LCM exports to import on first start (empty) |
-| `media/` | Oracle media; ignored by git |
+| `media/` | Oracle media, ignored by git, plus the manifests and `.dockerignore` that say which files the build uses |
 | `recordings/` | Raw recordings and configurator logs from the recording run; ignored by git |
 
 ## Not yet exercised

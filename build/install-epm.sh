@@ -1,15 +1,16 @@
 #!/bin/bash
 #
-# Installs the EPM System 11.2.15 base from the parts mounted at $BASE_MEDIA, using
-# install-response.xml next to this script. Runs at image build time as root, so it can
-# read the media whatever its permissions; the installer itself runs as oracle.
+# Installs the EPM System 11.2.15 base from the parts in $MEDIA that $MANIFEST lists,
+# using install-response.xml next to this script. Runs at image build time as root, so
+# it can read the media whatever its permissions; the installer itself runs as oracle.
 #
 # Oracle's rules for the media: unzip every part into one directory, with no spaces
 # in its path; the assemblies land in assemblies/<product>/<version>/assembly.dat.
 
 set -euo pipefail
 
-: "${BASE_MEDIA:?BASE_MEDIA must point at the directory holding the 11.2.15 Linux parts}"
+: "${MEDIA:?MEDIA must point at the directory holding the Oracle media}"
+: "${MANIFEST:?MANIFEST must name the manifest of the 11.2.15 Linux parts, in MEDIA}"
 
 here=$(cd "$(dirname "$0")" && pwd)
 staging=/tmp/epm-media
@@ -19,26 +20,18 @@ log() {
     echo "[install-epm] $*"
 }
 
-# The parts may sit directly in $BASE_MEDIA or in subfolders (Part_1 ... Part_6). The
-# installation docs and the Oracle HTTP Server installer are skipped: neither is needed.
-: "${BASE_MEDIA_SKIP:=Docs OHS}"
-find_args=()
-for dir in $BASE_MEDIA_SKIP; do
-    find_args+=(-not -path "*/$dir/*")
-done
-mapfile -t zips < <(find "$BASE_MEDIA" -name '*.zip' "${find_args[@]}" | sort)
-if [ ${#zips[@]} -eq 0 ]; then
-    echo "No zips in $BASE_MEDIA. Planning needs the EPM System 11.2.15 for Linux x86-64" \
-         "Parts 1 to 6 (per the 11.2.15 media pack readme)." >&2
-    exit 1
-fi
+# Every part present and intact before 40 minutes of installing.
+"$here/check-media.sh" "$MEDIA" "$MANIFEST"
+
+# The manifest lists the parts in Oracle's order, Part 1 to Part 6.
+mapfile -t zips < <(awk 'NF == 2 {print $2}' "$MEDIA/$MANIFEST")
 
 log "ulimit -n is $(ulimit -n); /tmp has $(df -h /tmp | awk 'NR==2 {print $4}') free"
 
 mkdir -p "$staging"
 for zip in "${zips[@]}"; do
-    log "Extracting ${zip#"$BASE_MEDIA"/}"
-    unzip -q -o "$zip" -d "$staging"
+    log "Extracting $zip"
+    unzip -q -o "$MEDIA/$zip" -d "$staging"
 done
 log "Assemblies available:"
 ls -1 "$staging/assemblies"

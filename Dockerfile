@@ -9,11 +9,13 @@
 #
 # The media is never copied into a layer. It comes in through a named build context
 # (compose.yml points "media" at ./media) and is bind-mounted only for the RUN steps
-# that need it:
+# that need it. ./media is one flat folder of Oracle's downloads under their own names;
+# a manifest per step says which files it uses, and each step checks them first:
 #
-#   media/<BASE_MEDIA_DIR>/    the 11.2.15 Linux parts 1-6, directly or in subfolders
-#                              (Docs/ and OHS/ subfolders are skipped)
-#   media/<UPDATE_MEDIA_DIR>/  the 11.2.26 update (V1057744-01.zip)
+#   media/epm-11.2.15-linux.sha256         the 11.2.15 Linux parts 1-6
+#   media/epm-11.2.26-update-linux.sha256  the 11.2.26 update
+#
+# media/.dockerignore lets only those files into the build context.
 #
 # Targets:
 #   planning          the runnable image (default)
@@ -23,8 +25,9 @@
 #                     (build planning first; compose builds this on top of its tag)
 #
 # The install (about 40 minutes) and the update (about 40 more) easily outlive
-# Docker's build cache: its default 20 GB cap is smaller than the media alone. Two
-# build args let either be supplied as an already-built image instead:
+# Docker's build cache: its default 20 GB cap holds less than the media (18 GB) and the
+# install together. Two build args let either be supplied as an already-built image
+# instead:
 #
 #   INSTALLED_IMAGE  an image of the installed target (11.2.15, unpatched); the update
 #                    then starts from it
@@ -93,11 +96,9 @@ ENV ORACLE_ROOT=/u01/oracle \
 # on without repeating a 40-minute install.
 FROM base AS installed
 
-ARG BASE_MEDIA_DIR=Hyperion_Planning_11.2.15
-ARG UPDATE_MEDIA_DIR=Planning_11.2.26_Linux
-
 WORKDIR /home/oracle
-COPY --chown=oracle:oinstall build/install-epm.sh build/install-response.xml /home/oracle/build/
+COPY --chown=oracle:oinstall build/install-epm.sh build/install-response.xml build/check-media.sh \
+    /home/oracle/build/
 
 # The media steps start as root, because BuildKit makes root the owner of the media
 # while keeping its modes, and copies out of Google Drive are owner-only. The scripts
@@ -105,20 +106,19 @@ COPY --chown=oracle:oinstall build/install-epm.sh build/install-response.xml /ho
 USER root
 
 RUN --mount=type=bind,from=media,target=/media \
-    BASE_MEDIA=/media/${BASE_MEDIA_DIR} /home/oracle/build/install-epm.sh
+    MEDIA=/media MANIFEST=epm-11.2.15-linux.sha256 /home/oracle/build/install-epm.sh
 
 
 # INSTALLED_IMAGE is the installed stage above unless a tagged copy is passed in.
 FROM ${INSTALLED_IMAGE} AS install
 
-ARG UPDATE_MEDIA_DIR=Planning_11.2.26_Linux
-
 USER root
-COPY --chown=oracle:oinstall build/apply-update.sh /home/oracle/build/
+# check-media.sh again: an INSTALLED_IMAGE built before it existed doesn't have it.
+COPY --chown=oracle:oinstall build/apply-update.sh build/check-media.sh /home/oracle/build/
 
 # 11.2.26 update, then cleanup of what only a rollback would need.
 RUN --mount=type=bind,from=media,target=/media \
-    UPDATE_MEDIA=/media/${UPDATE_MEDIA_DIR} /home/oracle/build/apply-update.sh
+    MEDIA=/media MANIFEST=epm-11.2.26-update-linux.sha256 /home/oracle/build/apply-update.sh
 
 
 FROM base AS vnc-tools

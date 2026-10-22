@@ -1,5 +1,9 @@
-# Oracle media is licensed and large; never commit it.
-media/
+# Oracle media is licensed and large; never commit it. Only the manifests, the build
+# context's .dockerignore and the README in media/ are tracked.
+media/*
+!media/*.sha256
+!media/.dockerignore
+!media/README.md
 # Raw configurator recordings and their logs: encrypted credentials and environment
 # details. container/config-response.xml is the cleaned-up template.
 recordings/

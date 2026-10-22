@@ -13,14 +13,14 @@ The desktop has an Openbox session with an xterm (closing it opens a new one) an
 
 ## 1. Installer response file (only to cross-check)
 
-Needs the 11.2.15 Linux parts in `media/Hyperion_Planning_11.2.15` (Part_1 … Part_6).
+Needs the 11.2.15 Linux parts in `media/` (the files `media/epm-11.2.15-linux.sha256` lists).
 
     docker compose --profile recorder up -d --build install-recorder
 
 In the xterm:
 
     mkdir -p /tmp/epm-media
-    find /media/Hyperion_Planning_11.2.15 -path '*/Part_*' -name '*.zip' -exec unzip -q -o {} -d /tmp/epm-media \;
+    for zip in $(awk '{print $2}' /media/epm-11.2.15-linux.sha256); do unzip -q -o "/media/$zip" -d /tmp/epm-media; done
     cd /tmp/epm-media && ./installTool.sh -record /home/oracle/recordings/install-response.xml
 
 Choices:

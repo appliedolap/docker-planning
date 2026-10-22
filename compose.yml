@@ -29,12 +29,11 @@ x-epm-environment: &epm-environment
 x-epm-build: &epm-build
   context: .
   # The Oracle media comes in as its own build context and is bind-mounted only by the
-  # RUN steps that use it, so none of it lands in an image layer.
+  # RUN steps that use it, so none of it lands in an image layer. media/.dockerignore
+  # sends only the files the manifests list.
   additional_contexts:
     media: ./media
   args:
-    BASE_MEDIA_DIR: "${BASE_MEDIA_DIR:-Hyperion_Planning_11.2.15}"
-    UPDATE_MEDIA_DIR: "${UPDATE_MEDIA_DIR:-Planning_11.2.26_Linux}"
     # A tagged image of the Dockerfile's "installed" target, to skip the 40-minute base
     # install; "installed" builds it from scratch. See the Dockerfile header.
     INSTALLED_IMAGE: "${INSTALLED_IMAGE:-installed}"

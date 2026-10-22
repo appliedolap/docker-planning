@@ -12,8 +12,10 @@
 
 set -euo pipefail
 
-: "${UPDATE_MEDIA:?UPDATE_MEDIA must point at the directory holding the 11.2.26 update zip}"
+: "${MEDIA:?MEDIA must point at the directory holding the Oracle media}"
+: "${MANIFEST:?MANIFEST must name the manifest of the 11.2.26 update, in MEDIA}"
 
+here=$(cd "$(dirname "$0")" && pwd)
 release=11.2.26
 work=/tmp/epm-update
 update="$work/$release.0-Update-Linux"
@@ -27,13 +29,13 @@ log() {
     echo "[apply-update] $*"
 }
 
-shopt -s nullglob
-zips=("$UPDATE_MEDIA"/*.zip)
+"$here/check-media.sh" "$MEDIA" "$MANIFEST"
+mapfile -t zips < <(awk 'NF == 2 {print $2}' "$MEDIA/$MANIFEST")
 if [ ${#zips[@]} -ne 1 ]; then
-    echo "Expected exactly one update zip in $UPDATE_MEDIA, found ${#zips[@]}" >&2
+    echo "Expected $MANIFEST to list exactly one update zip, found ${#zips[@]}" >&2
     exit 1
 fi
-media="${zips[0]}"
+media="$MEDIA/${zips[0]}"
 
 mkdir -p "$work"
 unzip -q -o "$media" \
